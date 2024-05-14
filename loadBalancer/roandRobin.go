@@ -37,7 +37,16 @@ func NewRoundRobin(hosts []string) LoadBalancer {
 	return r
 }
 
-func (r *roundRobin) DisableHost(host string, duration time.Duration) {
+func (r *roundRobin) SetHostStatus(host string, isActive bool) {
+	r.Lock()
+	defer r.Unlock()
+	index := r.hostsMap[host]
+	if r.hosts[index].enabled != isActive {
+		r.hosts[index].enabled = isActive
+	}
+}
+
+func (r *roundRobin) DisableHostForDuration(host string, duration time.Duration) {
 	r.Lock()
 	defer r.Unlock()
 	index := r.hostsMap[host]

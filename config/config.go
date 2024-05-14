@@ -14,8 +14,14 @@ const (
 	LoadBalanceType_WEIGHTED_ROUNDROBIN
 )
 
+type HealthCheckConfig struct {
+	Path              string
+	FailureThreshHold int
+	Interval          time.Duration
+}
+
 type HostUnit struct {
-	Url    string
+	Host   string
 	Weight int
 }
 
@@ -33,5 +39,6 @@ type HostLoadPolicy struct {
 type ApiConfig struct {
 	Match                MatchPolicy
 	HostInfo             HostLoadPolicy
+	HealthCheckConfig    *HealthCheckConfig
 	CircuitBreakerConfig CircuitBreakerConfig
 }

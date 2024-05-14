@@ -29,7 +29,7 @@ func NewWeightedRoundRobin(hosts []config.HostUnit) LoadBalancer {
 	}
 	for index, h := range hosts {
 		hostsInfo[index] = &weightedHost{
-			url:          h.Url,
+			url:          h.Host,
 			enabled:      true,
 			currentScore: 0,
 			MaxScore:     h.Weight / calculatedGcd,
@@ -79,7 +79,20 @@ func (r *weightedRoundRobin) createNexAvailableHost() {
 
 }
 
-func (r *weightedRoundRobin) DisableHost(host string, duration time.Duration) {
+func (r *weightedRoundRobin) SetHostStatus(host string, isActive bool) {
+	r.Lock()
+	defer r.Unlock()
+	for _, s := range r.hosts {
+		if s.url == host {
+			if s.enabled != isActive {
+				s.enabled = isActive
+			}
+			return
+		}
+	}
+}
+
+func (r *weightedRoundRobin) DisableHostForDuration(host string, duration time.Duration) {
 	r.Lock()
 	defer r.Unlock()
 	for _, s := range r.hosts {

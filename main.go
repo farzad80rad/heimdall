@@ -24,14 +24,19 @@ func main() {
 				LoadBalanceType: config.LoadBalanceType_WEIGHTED_ROUNDROBIN,
 				HostUnits: []config.HostUnit{
 					{
-						Url:    "http://localhost:23232",
+						Host:   "http://localhost:23231",
 						Weight: 8,
 					},
 					{
-						Url:    "http://localhost:23264",
+						Host:   "http://localhost:23235",
 						Weight: 4,
 					},
 				},
+			},
+			HealthCheckConfig: &config.HealthCheckConfig{
+				Path:              "/health",
+				FailureThreshHold: 3,
+				Interval:          5 * time.Second,
 			},
 		},
 	}
@@ -53,24 +58,58 @@ func proxyApi(apiConfig config.ApiConfig, r *gin.Engine) error {
 	default:
 		hosts := make([]string, len(apiConfig.HostInfo.HostUnits))
 		for i, unit := range apiConfig.HostInfo.HostUnits {
-			hosts[i] = unit.Url
+			hosts[i] = unit.Host
 		}
 		lb = loadBalancer.NewRoundRobin(hosts)
 	}
 
 	hosts := make(map[string]api.Api, 3*len(apiConfig.HostInfo.HostUnits))
 	for _, h := range apiConfig.HostInfo.HostUnits {
-		p, err := api.NewApi(h.Url, apiConfig.CircuitBreakerConfig)
+		p, err := api.NewApi(h.Host, apiConfig.CircuitBreakerConfig)
 		if err != nil {
 			return err
 		}
-		hosts[h.Url] = p
+		hosts[h.Host] = p
+
+		if apiConfig.HealthCheckConfig != nil {
+			go func(ap api.Api) {
+				failureCount := 0
+				for {
+					if isActive := ap.Ping(apiConfig.HealthCheckConfig.Path); isActive {
+						if failureCount > 0 {
+							failureCount = 0
+							lb.SetHostStatus(h.Host, true)
+						}
+					} else {
+						failureCount++
+					}
+
+					if failureCount == apiConfig.HealthCheckConfig.FailureThreshHold {
+						lb.SetHostStatus(h.Host, false)
+					}
+
+					sleepTime := apiConfig.HealthCheckConfig.Interval
+					if sleepTime < time.Second {
+						sleepTime = 5 * time.Second
+					}
+					time.Sleep(sleepTime)
+				}
+			}(p)
+		}
 	}
+
 	r.Match(apiConfig.Match.HttpTypes, apiConfig.Match.Url, func(c *gin.Context) {
 		destination := lb.Next()
-		if err := hosts[destination].Proxy(c); err == errors.HostIsDown {
-			lb.DisableHost(destination, apiConfig.CircuitBreakerConfig.QuarantineDuration)
+		host := hosts[destination]
+		err := host.Proxy(c)
+		if err == errors.HostIsDown {
+			if apiConfig.HealthCheckConfig == nil {
+				lb.DisableHostForDuration(destination, apiConfig.CircuitBreakerConfig.QuarantineDuration)
+			} else {
+				lb.SetHostStatus(destination, false)
+			}
 		}
+		return
 	})
 	return nil
 }
