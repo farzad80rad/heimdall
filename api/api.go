@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sony/gobreaker"
 	"heimdall/config"
@@ -32,7 +31,6 @@ func NewApi(host string, config config.CircuitBreakerConfig) (Api, error) {
 		Interval: config.ExamineWindow,
 		Timeout:  config.QuarantineDuration,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			fmt.Println("check ready to be tripped")
 			maxTolerance := uint32(10)
 			if config.FierierToleranceCount != 0 {
 				maxTolerance = config.FierierToleranceCount

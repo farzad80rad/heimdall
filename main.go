@@ -20,8 +20,18 @@ func main() {
 				QuarantineDuration:    10 * time.Second,
 				FierierToleranceCount: 3,
 			},
-			HostInfo: config.HostInfo{
-				HostAddress: []string{"http://localhost:23232", "http://localhost:23243"},
+			HostInfo: config.HostLoadPolicy{
+				LoadBalanceType: config.LoadBalanceType_WEIGHTED_ROUNDROBIN,
+				HostUnits: []config.HostUnit{
+					{
+						Url:    "http://localhost:23232",
+						Weight: 8,
+					},
+					{
+						Url:    "http://localhost:23264",
+						Weight: 4,
+					},
+				},
 			},
 		},
 	}
@@ -36,14 +46,25 @@ func main() {
 
 func proxyApi(apiConfig config.ApiConfig, r *gin.Engine) error {
 
-	lb := loadBalancer.NewRoundRobin(apiConfig.HostInfo.HostAddress)
-	hosts := make(map[string]api.Api, 3*len(apiConfig.HostInfo.HostAddress))
-	for _, h := range apiConfig.HostInfo.HostAddress {
-		p, err := api.NewApi(h, apiConfig.CircuitBreakerConfig)
+	var lb loadBalancer.LoadBalancer
+	switch apiConfig.HostInfo.LoadBalanceType {
+	case config.LoadBalanceType_WEIGHTED_ROUNDROBIN:
+		lb = loadBalancer.NewWeightedRoundRobin(apiConfig.HostInfo.HostUnits)
+	default:
+		hosts := make([]string, len(apiConfig.HostInfo.HostUnits))
+		for i, unit := range apiConfig.HostInfo.HostUnits {
+			hosts[i] = unit.Url
+		}
+		lb = loadBalancer.NewRoundRobin(hosts)
+	}
+
+	hosts := make(map[string]api.Api, 3*len(apiConfig.HostInfo.HostUnits))
+	for _, h := range apiConfig.HostInfo.HostUnits {
+		p, err := api.NewApi(h.Url, apiConfig.CircuitBreakerConfig)
 		if err != nil {
 			return err
 		}
-		hosts[h] = p
+		hosts[h.Url] = p
 	}
 	r.Match(apiConfig.Match.HttpTypes, apiConfig.Match.Url, func(c *gin.Context) {
 		destination := lb.Next()

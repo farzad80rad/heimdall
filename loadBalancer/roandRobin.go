@@ -1,14 +1,13 @@
 package loadBalancer
 
 import (
-	"fmt"
+	"sync"
 	"time"
 )
 
 type host struct {
-	url         string
-	enabled     bool
-	failedCount int
+	url     string
+	enabled bool
 }
 
 type roundRobin struct {
@@ -16,6 +15,7 @@ type roundRobin struct {
 	nextAvailableHost chan string
 	hosts             []*host
 	hostsMap          map[string]int
+	sync.Mutex
 }
 
 func NewRoundRobin(hosts []string) LoadBalancer {
@@ -38,12 +38,16 @@ func NewRoundRobin(hosts []string) LoadBalancer {
 }
 
 func (r *roundRobin) DisableHost(host string, duration time.Duration) {
+	r.Lock()
+	defer r.Unlock()
 	index := r.hostsMap[host]
-	r.hosts[index].enabled = false
-	go func() {
-		time.Sleep(duration)
-		r.hosts[index].enabled = true
-	}()
+	if r.hosts[index].enabled {
+		r.hosts[index].enabled = false
+		go func() {
+			time.Sleep(duration)
+			r.hosts[index].enabled = true
+		}()
+	}
 }
 
 func (r *roundRobin) Next() string {
@@ -61,12 +65,10 @@ func (r *roundRobin) createNexAvailableHost() {
 			}
 			consecutiveFailures++
 			if consecutiveFailures == len(r.hosts) {
-				fmt.Println("sleep")
 				// just to prevent cpu bursting when there is no available host
 				time.Sleep(time.Second)
 			}
 		}
-		fmt.Println("host is active", *r.hosts[r.index])
 		r.nextAvailableHost <- r.hosts[r.index].url
 	}
 }
