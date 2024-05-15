@@ -2,7 +2,7 @@ package loadBalancer
 
 import (
 	"fmt"
-	"heimdall/config"
+	"heimdall/internal/config"
 	"sync"
 	"time"
 )

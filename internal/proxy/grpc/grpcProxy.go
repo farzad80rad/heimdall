@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	golang "heimdall/Proto/gen/Proto"
-	"heimdall/config"
-	heimdallErrors "heimdall/errors"
-	"heimdall/proxy"
+	"heimdall/internal/config"
+	heimdallErrors "heimdall/internal/errors"
+	"heimdall/internal/proxy"
 	"time"
 )
 

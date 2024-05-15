@@ -7,9 +7,9 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/sony/gobreaker"
-	"heimdall/config"
-	heimdallErrors "heimdall/errors"
-	"heimdall/proxy"
+	"heimdall/internal/config"
+	heimdallErrors "heimdall/internal/errors"
+	"heimdall/internal/proxy"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -58,7 +58,7 @@ func New(host string, config config.CircuitBreakerConfig, checkConfig *config.Re
 
 func (a *httpProxy) Ping(url string) bool {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
-	err := proxy.DoHTTPGetRequest(ctx, a.host+url)
+	err := proxy.DoHTTPGetRequest(ctx, url)
 	return err == nil
 }
 
