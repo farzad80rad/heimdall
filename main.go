@@ -1,12 +1,15 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"heimdall/api"
 	"heimdall/config"
-	"heimdall/errors"
+	heimdallErrors "heimdall/errors"
 	"heimdall/loadBalancer"
 	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -38,6 +41,13 @@ func main() {
 				FailureThreshHold: 3,
 				Interval:          5 * time.Second,
 			},
+			RequestBodyCheckConfig: &config.RequestBodyCheckConfig{
+				MandatoryFields: []config.RequestValidationUnit{
+					{FieldName: "f1", Type: reflect.String},
+					{FieldName: "f2", Type: reflect.Bool},
+					{FieldName: "f3", Type: reflect.Float64},
+				},
+			},
 		},
 	}
 
@@ -65,7 +75,7 @@ func proxyApi(apiConfig config.ApiConfig, r *gin.Engine) error {
 
 	hosts := make(map[string]api.Api, 3*len(apiConfig.HostInfo.HostUnits))
 	for _, h := range apiConfig.HostInfo.HostUnits {
-		p, err := api.NewApi(h.Host, apiConfig.CircuitBreakerConfig)
+		p, err := api.NewApi(h.Host, apiConfig.CircuitBreakerConfig, apiConfig.RequestBodyCheckConfig)
 		if err != nil {
 			return err
 		}
@@ -102,12 +112,20 @@ func proxyApi(apiConfig config.ApiConfig, r *gin.Engine) error {
 		destination := lb.Next()
 		host := hosts[destination]
 		err := host.Proxy(c)
-		if err == errors.HostIsDown {
-			if apiConfig.HealthCheckConfig == nil {
-				lb.DisableHostForDuration(destination, apiConfig.CircuitBreakerConfig.QuarantineDuration)
-			} else {
-				lb.SetHostStatus(destination, false)
+		if err != nil {
+			fmt.Println(err)
+			if err == heimdallErrors.HostIsDown {
+				if apiConfig.HealthCheckConfig == nil {
+					lb.DisableHostForDuration(destination, apiConfig.CircuitBreakerConfig.QuarantineDuration)
+				} else {
+					lb.SetHostStatus(destination, false)
+				}
 			}
+			if errors.Is(err, heimdallErrors.BadRequest) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		}
 		return
 	})

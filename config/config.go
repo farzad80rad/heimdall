@@ -1,6 +1,26 @@
 package config
 
-import "time"
+import (
+	"reflect"
+	"time"
+)
+
+type ApiConfig struct {
+	Match                  MatchPolicy
+	HostInfo               HostLoadPolicy
+	HealthCheckConfig      *HealthCheckConfig
+	CircuitBreakerConfig   CircuitBreakerConfig
+	RequestBodyCheckConfig *RequestBodyCheckConfig
+}
+
+type RequestBodyCheckConfig struct {
+	MandatoryFields []RequestValidationUnit
+}
+
+type RequestValidationUnit struct {
+	FieldName string
+	Type      reflect.Kind
+}
 
 type MatchPolicy struct {
 	Url       string
@@ -34,11 +54,4 @@ type CircuitBreakerConfig struct {
 type HostLoadPolicy struct {
 	LoadBalanceType LoadBalanceType
 	HostUnits       []HostUnit
-}
-
-type ApiConfig struct {
-	Match                MatchPolicy
-	HostInfo             HostLoadPolicy
-	HealthCheckConfig    *HealthCheckConfig
-	CircuitBreakerConfig CircuitBreakerConfig
 }
