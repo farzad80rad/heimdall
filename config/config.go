@@ -22,7 +22,16 @@ type RequestValidationUnit struct {
 	Type      reflect.Kind
 }
 
+type ConnectionType int
+
+const (
+	ConnectionType_HTTP1 ConnectionType = iota
+	ConnectionType_GPRC
+)
+
 type MatchPolicy struct {
+	ConnectionType
+	Name      string
 	Url       string
 	HttpTypes []string
 }

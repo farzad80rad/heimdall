@@ -2,12 +2,14 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
-	"heimdall/api"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"heimdall/config"
 	heimdallErrors "heimdall/errors"
 	"heimdall/loadBalancer"
+	"heimdall/proxy"
+	"heimdall/proxy/grpc"
+	proxyHttp "heimdall/proxy/http"
 	"net/http"
 	"reflect"
 	"time"
@@ -16,8 +18,50 @@ import (
 func main() {
 
 	apiConfigs := []config.ApiConfig{
-		{Match: config.MatchPolicy{Url: "/api1/*any",
-			HttpTypes: []string{http.MethodGet, http.MethodConnect, http.MethodOptions, http.MethodPost}},
+		{
+			Match: config.MatchPolicy{
+				ConnectionType: config.ConnectionType_GPRC,
+				Name:           string(proxyGrpc.HeimdallGrpcService_MESSEGING),
+				Url:            "/backend.messaging.v1.MessagingService/Echo",
+				HttpTypes:      []string{http.MethodGet, http.MethodConnect, http.MethodOptions, http.MethodPost},
+			},
+			CircuitBreakerConfig: config.CircuitBreakerConfig{
+				ExamineWindow:         60 * time.Second,
+				QuarantineDuration:    time.Second,
+				FierierToleranceCount: 3,
+			},
+			HostInfo: config.HostLoadPolicy{
+				LoadBalanceType: config.LoadBalanceType_ROUNDROBIN,
+				HostUnits: []config.HostUnit{
+					{
+						Host:   "localhost:50501",
+						Weight: 8,
+					},
+					{
+						Host:   "localhost:50502",
+						Weight: 8,
+					},
+				},
+			},
+			/*HealthCheckConfig: &config.HealthCheckConfig{
+				Path:              "/health",
+				FailureThreshHold: 3,
+				Interval:          5 * time.Second,
+			},*/
+			RequestBodyCheckConfig: &config.RequestBodyCheckConfig{
+				MandatoryFields: []config.RequestValidationUnit{
+					{FieldName: "f1", Type: reflect.String},
+					{FieldName: "f2", Type: reflect.Bool},
+					{FieldName: "f3", Type: reflect.Float64},
+				},
+			},
+		},
+		{
+			Match: config.MatchPolicy{
+				ConnectionType: config.ConnectionType_HTTP1,
+				Url:            "/api1/*any",
+				HttpTypes:      []string{http.MethodGet, http.MethodConnect, http.MethodOptions, http.MethodPost},
+			},
 			CircuitBreakerConfig: config.CircuitBreakerConfig{
 				ExamineWindow:         60 * time.Second,
 				QuarantineDuration:    10 * time.Second,
@@ -59,6 +103,8 @@ func main() {
 	r.Run(":23982") // Run on port 8080
 }
 
+// Example unary interceptor
+
 func proxyApi(apiConfig config.ApiConfig, r *gin.Engine) error {
 
 	var lb loadBalancer.LoadBalancer
@@ -73,16 +119,30 @@ func proxyApi(apiConfig config.ApiConfig, r *gin.Engine) error {
 		lb = loadBalancer.NewRoundRobin(hosts)
 	}
 
-	hosts := make(map[string]api.Api, 3*len(apiConfig.HostInfo.HostUnits))
+	grpcMuxMap := make(map[string]*runtime.ServeMux)
+	hosts := make(map[string]proxy.Proxy, 3*len(apiConfig.HostInfo.HostUnits))
 	for _, h := range apiConfig.HostInfo.HostUnits {
-		p, err := api.NewApi(h.Host, apiConfig.CircuitBreakerConfig, apiConfig.RequestBodyCheckConfig)
+		var p proxy.Proxy
+		var err error
+		if apiConfig.Match.ConnectionType == config.ConnectionType_GPRC {
+			var mux *runtime.ServeMux
+			if m, found := grpcMuxMap[h.Host]; found {
+				mux = m
+			} else {
+				mux = runtime.NewServeMux()
+				grpcMuxMap[h.Host] = mux
+			}
+			p, err = proxyGrpc.New(h.Host, apiConfig.CircuitBreakerConfig, apiConfig.RequestBodyCheckConfig, mux, proxyGrpc.HeimdallGrpcService(apiConfig.Match.Name))
+		} else {
+			p, err = proxyHttp.New(h.Host, apiConfig.CircuitBreakerConfig, apiConfig.RequestBodyCheckConfig)
+		}
 		if err != nil {
 			return err
 		}
 		hosts[h.Host] = p
 
 		if apiConfig.HealthCheckConfig != nil {
-			go func(ap api.Api) {
+			go func(ap proxy.Proxy) {
 				failureCount := 0
 				for {
 					if isActive := ap.Ping(apiConfig.HealthCheckConfig.Path); isActive {
@@ -113,7 +173,6 @@ func proxyApi(apiConfig config.ApiConfig, r *gin.Engine) error {
 		host := hosts[destination]
 		err := host.Proxy(c)
 		if err != nil {
-			fmt.Println(err)
 			if err == heimdallErrors.HostIsDown {
 				if apiConfig.HealthCheckConfig == nil {
 					lb.DisableHostForDuration(destination, apiConfig.CircuitBreakerConfig.QuarantineDuration)

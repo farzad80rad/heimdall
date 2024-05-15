@@ -1,15 +1,15 @@
-package api
+package proxyHttp
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sony/gobreaker"
 	"heimdall/config"
 	heimdallErrors "heimdall/errors"
+	"heimdall/proxy"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -18,19 +18,14 @@ import (
 	"time"
 )
 
-type Api interface {
-	Proxy(ctx *gin.Context) error
-	Ping(url string) bool
-}
-
-type api struct {
+type httpProxy struct {
 	cb              *gobreaker.CircuitBreaker
 	proxy           *httputil.ReverseProxy
 	host            string
 	bodyCheckConfig *config.RequestBodyCheckConfig
 }
 
-func NewApi(host string, config config.CircuitBreakerConfig, checkConfig *config.RequestBodyCheckConfig) (Api, error) {
+func New(host string, config config.CircuitBreakerConfig, checkConfig *config.RequestBodyCheckConfig) (proxy.Proxy, error) {
 	h, err := url.Parse(host)
 	if err != nil {
 		return nil, err
@@ -53,7 +48,7 @@ func NewApi(host string, config config.CircuitBreakerConfig, checkConfig *config
 		},
 	})
 
-	return &api{
+	return &httpProxy{
 		cb:              cb,
 		host:            host,
 		proxy:           proxy,
@@ -61,13 +56,13 @@ func NewApi(host string, config config.CircuitBreakerConfig, checkConfig *config
 	}, nil
 }
 
-func (a *api) Ping(url string) bool {
+func (a *httpProxy) Ping(url string) bool {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
-	err := doHTTPGetRequest(ctx, a.host+url)
+	err := proxy.DoHTTPGetRequest(ctx, a.host+url)
 	return err == nil
 }
 
-func (a *api) Proxy(c *gin.Context) error {
+func (a *httpProxy) Proxy(c *gin.Context) error {
 
 	if a.bodyCheckConfig != nil {
 		//req.Header = c.Request.Header
@@ -105,26 +100,5 @@ func (a *api) Proxy(c *gin.Context) error {
 		}
 		return heimdallErrors.ConnectionIssue
 	}
-	return nil
-}
-
-func doHTTPGetRequest(ctx context.Context, url string) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
-	client := &http.Client{
-		Timeout: time.Minute * 1,
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("status code is not OK: %v", resp.StatusCode)
-	}
-
 	return nil
 }

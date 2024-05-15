@@ -1,0 +1,11 @@
+syntax = "proto3";
+package backend.messaging.v1;
+option go_package = "github.com/farzad80rad/heimdall/Proto/go/service/golang";
+
+message StringMessage {
+  string value = 1;
+}
+
+service MessagingService{
+  rpc Echo(StringMessage) returns (StringMessage) {}
+}
