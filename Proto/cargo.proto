@@ -1,0 +1,30 @@
+syntax = "proto3";
+package backend.cargo.v1;
+option go_package = "github.com/farzad80rad/heimdall/Proto/go/service/golang";
+
+
+message Cargo {
+  string name = 1;
+  int64 amount = 2;
+}
+
+message RequestSendCargo {
+  Cargo cargo = 1;
+}
+
+message ResponseSendCargo {
+  int32 id = 1 ;
+}
+
+message RequestReceivedCargo {
+  int32 id = 1;
+}
+
+message ResponseReceivedCargo {
+  string name = 1 ;
+}
+
+service CargoService{
+  rpc SendCargo(RequestSendCargo) returns (ResponseSendCargo) {}
+  rpc ReceivedCargo(RequestReceivedCargo) returns (ResponseReceivedCargo){}
+}

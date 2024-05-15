@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sony/gobreaker"
 	"heimdall/internal/config"
 	heimdallErrors "heimdall/internal/errors"
 	"heimdall/internal/proxy"
+	"heimdall/internal/utils"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -38,8 +40,8 @@ func New(host string, config config.CircuitBreakerConfig, checkConfig *config.Re
 		Timeout:  config.QuarantineDuration,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			maxTolerance := uint32(10)
-			if config.FierierToleranceCount != 0 {
-				maxTolerance = config.FierierToleranceCount
+			if config.FailureToleranceCount != 0 {
+				maxTolerance = config.FailureToleranceCount
 			}
 			return counts.ConsecutiveFailures > maxTolerance
 		},
@@ -58,7 +60,7 @@ func New(host string, config config.CircuitBreakerConfig, checkConfig *config.Re
 
 func (a *httpProxy) Ping(url string) bool {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
-	err := proxy.DoHTTPGetRequest(ctx, url)
+	err := utils.DoHTTPGetRequest(ctx, url)
 	return err == nil
 }
 
@@ -77,15 +79,17 @@ func (a *httpProxy) Proxy(c *gin.Context) error {
 			}
 			for _, feildInfo := range a.bodyCheckConfig.MandatoryFields {
 				v, found := requestBodyMap[feildInfo.FieldName]
-				if !(found && reflect.TypeOf(v).Kind() == feildInfo.Type) {
-					return errors.Join(heimdallErrors.BadRequest, errors.New("missing required field "+feildInfo.FieldName))
+				if !(found && reflect.TypeOf(v).Kind().String() == feildInfo.Type) {
+					fmt.Println(feildInfo.Type, reflect.TypeOf(v).Kind().String())
+					err = errors.Join(heimdallErrors.BadRequest, errors.New("missing required field "+feildInfo.FieldName))
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return err
 				}
 			}
 		}
 	}
 
 	_, err := a.cb.Execute(func() (interface{}, error) {
-
 		var cbError error
 		a.proxy.ErrorHandler = func(writer http.ResponseWriter, request *http.Request, err error) {
 			cbError = err
@@ -96,8 +100,10 @@ func (a *httpProxy) Proxy(c *gin.Context) error {
 
 	if err != nil {
 		if err == gobreaker.ErrOpenState {
+			c.JSON(http.StatusBadGateway, gin.H{"error": heimdallErrors.HostIsDown.Error()})
 			return heimdallErrors.HostIsDown
 		}
+		c.JSON(http.StatusBadGateway, gin.H{"error": heimdallErrors.ConnectionIssue.Error()})
 		return heimdallErrors.ConnectionIssue
 	}
 	return nil

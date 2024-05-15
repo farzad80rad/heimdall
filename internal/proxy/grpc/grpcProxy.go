@@ -1,8 +1,11 @@
 package proxyGrpc
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/sony/gobreaker"
@@ -14,6 +17,10 @@ import (
 	"heimdall/internal/config"
 	heimdallErrors "heimdall/internal/errors"
 	"heimdall/internal/proxy"
+	"heimdall/internal/utils"
+	"io"
+	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -37,8 +44,8 @@ func New(host string, config config.CircuitBreakerConfig, checkConfig *config.Re
 		Timeout:  config.QuarantineDuration,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			maxTolerance := uint32(10)
-			if config.FierierToleranceCount != 0 {
-				maxTolerance = config.FierierToleranceCount
+			if config.FailureToleranceCount != 0 {
+				maxTolerance = config.FailureToleranceCount
 			}
 			return counts.ConsecutiveFailures > maxTolerance
 		},
@@ -55,6 +62,7 @@ func New(host string, config config.CircuitBreakerConfig, checkConfig *config.Re
 	}
 	err := g.establishConnection(grpcService, host, mux)
 	if err != nil {
+		panic(err)
 		return nil, err
 	}
 
@@ -62,6 +70,7 @@ func New(host string, config config.CircuitBreakerConfig, checkConfig *config.Re
 }
 
 func (g *grpcProxy) establishConnection(identifier HeimdallGrpcService, host string, mux *runtime.ServeMux) error {
+	fmt.Println("eemmmm", identifier, host)
 	ctx := context.Background()
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -70,18 +79,42 @@ func (g *grpcProxy) establishConnection(identifier HeimdallGrpcService, host str
 	var err error
 	switch identifier {
 	case HeimdallGrpcService_MESSEGING:
-		err = golang.RegisterMessagingServiceHandlerFromEndpoint(ctx, mux, host, opts)
+		err = golang.RegisterMessagingServiceHandlerFromEndpoint(ctx, mux, "localhost:50501", opts)
+	case HeimdallGrpcService_CARGO:
+		err = golang.RegisterCargoServiceHandlerFromEndpoint(ctx, mux, host, opts)
 	}
 	return err
 }
 
 func (a *grpcProxy) Ping(url string) bool {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
-	err := proxy.DoHTTPGetRequest(ctx, a.host+url)
+	err := utils.DoHTTPGetRequest(ctx, a.host+url)
 	return err == nil
 }
 
 func (a *grpcProxy) Proxy(c *gin.Context) error {
+	fmt.Println("haaa")
+	if a.bodyCheckConfig != nil {
+		if c.Request.Body != nil {
+			body, _ := io.ReadAll(c.Request.Body)
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+			var requestBodyMap map[string]interface{}
+			err := json.Unmarshal(body, &requestBodyMap)
+			if err != nil {
+				return errors.Join(heimdallErrors.BadRequest, errors.New("not in json format"))
+			}
+			for _, fieldInfo := range a.bodyCheckConfig.MandatoryFields {
+				v, found := requestBodyMap[fieldInfo.FieldName]
+				if !(found && reflect.TypeOf(v).Kind().String() == fieldInfo.Type) {
+					err = errors.Join(heimdallErrors.BadRequest, errors.New("missing required field "+fieldInfo.FieldName))
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return err
+				}
+			}
+		}
+	}
+	fmt.Println("haa2")
+
 	_, err := a.cb.Execute(func() (interface{}, error) {
 		a.mux.ServeHTTP(c.Writer, c.Request)
 		return nil, a.lastError

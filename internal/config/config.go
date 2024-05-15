@@ -1,66 +1,91 @@
 package config
 
 import (
-	"reflect"
+	"gopkg.in/yaml.v3"
+	"log"
+	"os"
 	"time"
 )
 
+type HeimdallConfig struct {
+	ApisConfig []ApiConfig `yaml:"apis_config"`
+}
+
 type ApiConfig struct {
-	Match                  MatchPolicy
-	HostInfo               HostLoadPolicy
-	HealthCheckConfig      *HealthCheckConfig
-	CircuitBreakerConfig   CircuitBreakerConfig
-	RequestBodyCheckConfig *RequestBodyCheckConfig
+	Match                  MatchPolicy             `yaml:"match_policy"`
+	LoadBalancePolicy      HostLoadPolicy          `yaml:"load_balance"`
+	HealthCheckConfig      *HealthCheckConfig      `yaml:"health_check_config"`
+	CircuitBreakerConfig   CircuitBreakerConfig    `yaml:"circuit_breaker_config"`
+	RequestBodyCheckConfig *RequestBodyCheckConfig `yaml:"request_body_check"`
 }
 
 type RequestBodyCheckConfig struct {
-	MandatoryFields []RequestValidationUnit
+	MandatoryFields []RequestValidationUnit `yaml:"mandatory_fields"`
 }
 
 type RequestValidationUnit struct {
-	FieldName string
-	Type      reflect.Kind
+	FieldName string `yaml:"field_name"`
+	Type      string `yaml:"type"`
 }
 
-type ConnectionType int
+type ConnectionType string
 
 const (
-	ConnectionType_HTTP1 ConnectionType = iota
-	ConnectionType_GPRC
+	ConnectionType_HTTP1 ConnectionType = "http"
+	ConnectionType_GPRC  ConnectionType = "grpc"
 )
 
 type MatchPolicy struct {
-	ConnectionType
-	Name      string
-	Url       string
-	HttpTypes []string
+	ConnectionType     ConnectionType `yaml:"connection_type"`
+	Name               string         `yaml:"name"`
+	Path               string         `yaml:"path"`
+	SupportedRestTypes []string       `yaml:"http_types"`
 }
 
-type LoadBalanceType int
+type LoadBalanceType string
 
 const (
-	LoadBalanceType_ROUNDROBIN LoadBalanceType = iota
-	LoadBalanceType_WEIGHTED_ROUNDROBIN
+	LoadBalanceType_ROUNDROBIN          LoadBalanceType = "round_robin"
+	LoadBalanceType_WEIGHTED_ROUNDROBIN LoadBalanceType = "weighted_round_robin"
 )
 
 type HealthCheckConfig struct {
-	Path              string
-	FailureThreshHold int
-	Interval          time.Duration
+	Path              string        `yaml:"path"`
+	FailureThreshHold int           `yaml:"failure_threshold"`
+	Interval          time.Duration `yaml:"interval"`
 }
 
 type HostUnit struct {
-	Host   string
-	Weight int
+	Host   string `yaml:"host"`
+	Weight int    `yaml:"load_balance_weight"`
 }
 
 type CircuitBreakerConfig struct {
-	ExamineWindow         time.Duration
-	QuarantineDuration    time.Duration
-	FierierToleranceCount uint32
+	ExamineWindow         time.Duration `yaml:"examine_window"`
+	QuarantineDuration    time.Duration `yaml:"quarantine_duration"`
+	FailureToleranceCount uint32        `yaml:"failure_tolerance_count"`
 }
 
 type HostLoadPolicy struct {
-	LoadBalanceType LoadBalanceType
-	HostUnits       []HostUnit
+	LoadBalanceType LoadBalanceType `yaml:"type"`
+	HostUnits       []HostUnit      `yaml:"host_units"`
+}
+
+func ReadConfig(filename string) (*HeimdallConfig, error) {
+	// Read the YAML file contents
+	data, err := os.ReadFile(filename) // Or use os.ReadFile(filename)
+	if err != nil {
+		log.Println("error reading YAML file: ", err)
+		return nil, err
+	}
+
+	// Unmarshal the YAML data into the config struct
+	config := &HeimdallConfig{}
+	err = yaml.Unmarshal(data, config)
+	if err != nil {
+		log.Println("error parsing YAML data: ", err)
+		return nil, err
+	}
+
+	return config, nil
 }

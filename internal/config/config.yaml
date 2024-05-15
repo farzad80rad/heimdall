@@ -1,0 +1,72 @@
+apis_config:
+  - match_policy:
+      connection_type: "http"
+      name: "httpTest1"
+      path: "/api1/*any"
+      http_types: ["POST", "PUT", "DELETE", "PATCH", "GET", "HEAD", "OPTIONS"]
+    load_balance:
+      type: "round_robin"
+      host_units:
+        - host: "http://localhost:23231"
+          load_balance_weight: 4
+        - host: "http://localhost:23533"
+          load_balance_weight: 2
+    health_check_config:
+      path: "/health"
+      failure_threshold: 3
+      interval: "10s"
+    circuit_breaker_config:
+      examine_window: "1m"
+      quarantine_duration: "10s"
+      failure_tolerance_count: 5
+    request_body_check:
+      mandatory_fields:
+        - field_name: "f1"
+          type: "string"
+        - field_name: "f2"
+          type: "bool"
+        - field_name: "f3"
+          type: "float64"
+        - field_name: "f4"
+          type: "map"
+        - field_name: "f5"
+          type: "slice"
+
+
+  - match_policy:
+      connection_type: "grpc"
+      name: "CARGO"
+      path: "/backend.cargo.v1.CargoService/*any"
+      http_types: ["POST", "PUT", "DELETE", "PATCH", "GET", "HEAD", "OPTIONS"]
+    load_balance:
+      type: "round_robin"
+      host_units:
+        - host: "localhost:50503"
+          load_balance_weight: 4
+        - host: "localhost:50502"
+          load_balance_weight: 2
+    circuit_breaker_config:
+      examine_window: "1m"
+      quarantine_duration: "5s"
+      failure_tolerance_count: 2
+
+
+  - match_policy:
+      connection_type: "grpc"
+      name: "MESSEGING"
+      path: "/backend.messaging.v1.MessagingService/Echo"
+      http_types: ["POST"]
+    load_balance:
+      type: "round_robin"
+      host_units:
+        - host: "http://localhost:50501"
+    circuit_breaker_config:
+      examine_window: "1m"
+      quarantine_duration: "5s"
+      failure_tolerance_count: 2
+    request_body_check:
+      mandatory_fields:
+        - field_name: "value"
+          type: "string"
+
+

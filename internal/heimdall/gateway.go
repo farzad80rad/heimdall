@@ -2,6 +2,7 @@ package heimdall
 
 import (
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"heimdall/internal/config"
@@ -40,7 +41,8 @@ func NewApiGateway(apiConfig config.ApiConfig, r *gin.Engine) (ApiGateway, error
 }
 
 func (g *gateway) Run() error {
-	g.r.Match(g.apiConfig.Match.HttpTypes, g.apiConfig.Match.Url, g.handleRequest)
+	fmt.Println("haaaaaa", g.apiConfig.Match.SupportedRestTypes, g.apiConfig.Match.Path)
+	g.r.Match(g.apiConfig.Match.SupportedRestTypes, g.apiConfig.Match.Path, g.handleRequest)
 	return nil
 }
 
@@ -70,12 +72,12 @@ func (g *gateway) handleRequest(c *gin.Context) {
 }
 
 func createLoadBalancer(apiConfig config.ApiConfig) loadBalancer2.LoadBalancer {
-	switch apiConfig.HostInfo.LoadBalanceType {
+	switch apiConfig.LoadBalancePolicy.LoadBalanceType {
 	case config.LoadBalanceType_WEIGHTED_ROUNDROBIN:
-		return loadBalancer2.NewWeightedRoundRobin(apiConfig.HostInfo.HostUnits)
+		return loadBalancer2.NewWeightedRoundRobin(apiConfig.LoadBalancePolicy.HostUnits)
 	default:
-		hosts := make([]string, len(apiConfig.HostInfo.HostUnits))
-		for i, unit := range apiConfig.HostInfo.HostUnits {
+		hosts := make([]string, len(apiConfig.LoadBalancePolicy.HostUnits))
+		for i, unit := range apiConfig.LoadBalancePolicy.HostUnits {
 			hosts[i] = unit.Host
 		}
 		return loadBalancer2.NewRoundRobin(hosts)
@@ -83,9 +85,9 @@ func createLoadBalancer(apiConfig config.ApiConfig) loadBalancer2.LoadBalancer {
 }
 
 func (g *gateway) createHosts() (map[string]proxy.Proxy, error) {
-	hosts := make(map[string]proxy.Proxy, 3*len(g.apiConfig.HostInfo.HostUnits))
+	hosts := make(map[string]proxy.Proxy, 3*len(g.apiConfig.LoadBalancePolicy.HostUnits))
 	muxPerHost := make(map[string]*runtime.ServeMux) // to prevent duplicate mux for a single grpc host
-	for _, h := range g.apiConfig.HostInfo.HostUnits {
+	for _, h := range g.apiConfig.LoadBalancePolicy.HostUnits {
 		var p proxy.Proxy
 		var err error
 		if g.apiConfig.Match.ConnectionType == config.ConnectionType_GPRC {
