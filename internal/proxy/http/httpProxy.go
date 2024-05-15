@@ -1,7 +1,6 @@
 package proxyHttp
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
@@ -10,7 +9,6 @@ import (
 	heimdallErrors "heimdall/internal/errors"
 	"heimdall/internal/proxy"
 	"heimdall/internal/utils"
-	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -64,13 +62,10 @@ func (a *httpProxy) Ping(url string) bool {
 func (a *httpProxy) Proxy(c *gin.Context) error {
 
 	if a.bodyCheckConfig != nil {
-		if c.Request.Body != nil {
-			body, _ := io.ReadAll(c.Request.Body)
-			c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-			err := utils.ValidateBody(c.Request.Method, body, a.bodyCheckConfig)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			}
+		err := utils.ValidateBody(c, a.bodyCheckConfig)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return err
 		}
 	}
 

@@ -1,7 +1,6 @@
 package loadBalancer
 
 import (
-	"fmt"
 	"heimdall/internal/config"
 	"sync"
 	"time"
@@ -58,22 +57,12 @@ func (r *weightedRoundRobin) createNexAvailableHost() {
 				h.currentScore++
 				r.nextAvailableHost <- r.hosts[r.index].url
 			}
+			h.currentScore = 0
 		}
 
 		consecutiveFailures++
 		if consecutiveFailures == len(r.hosts) {
-			consecutiveFailures = 0
-			isAnyoneAlive := false
-			for _, h2 := range r.hosts {
-				fmt.Println("release")
-				h2.currentScore = 0
-				if h2.enabled {
-					isAnyoneAlive = true
-				}
-			}
-			if !isAnyoneAlive {
-				time.Sleep(3 * time.Second)
-			}
+			time.Sleep(3 * time.Second)
 		}
 	}
 

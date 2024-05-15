@@ -26,14 +26,18 @@ apis_config:
           load_balance_weight: 4
         - host: "http://localhost:23533"
           load_balance_weight: 2
+        - host: "http://localhost:23232"
+          load_balance_weight: 2
+        - host: "http://localhost:23233"
+          load_balance_weight: 2
     health_check_config:
       path: "/health"
       failure_threshold: 3
       interval: "10s"
     circuit_breaker_config:
       examine_window: "1m"
-      quarantine_duration: "10s"
-      failure_tolerance_count: 5
+      quarantine_duration: "30s"
+      failure_tolerance_count: 2
 
 
 
