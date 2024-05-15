@@ -1,0 +1,11 @@
+version: "3.9"  # Specify Docker Compose version (3.9 is a stable choice)
+services:
+  heimdall:
+    image: heimdal:1.0.6  # The Docker image to use
+    container_name: heimdall-app  # Optional: Give the container a custom name
+    restart: unless-stopped  # Restart policy: always restart unless manually stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml  # Mount your local config.yaml into the container
+    ports:
+      - 80:80  # Expose port 80 of the container on port 80 of your host (adjust as needed)
+      - 443:443  # Expose port 80 of the container on port 80 of your host (adjust as needed)

@@ -10,12 +10,13 @@ import (
 
 func main() {
 
-	apiConfigs, err := config.ReadConfig("./internal/config/config.yaml")
+	apiConfigs, err := config.ReadConfig("/app/config.yaml")
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 	r := gin.Default()
 	for _, apiConfig := range apiConfigs.ApisConfig {
+		log.Println(apiConfig)
 		func() {
 			defer func() {
 				err := recover()
@@ -34,5 +35,5 @@ func main() {
 		}()
 	}
 
-	r.Run(":23982")
+	r.Run(":80")
 }

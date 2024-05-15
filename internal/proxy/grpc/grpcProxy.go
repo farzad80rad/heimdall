@@ -1,7 +1,6 @@
 package proxyGrpc
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
@@ -16,7 +15,6 @@ import (
 	heimdallErrors "heimdall/internal/errors"
 	"heimdall/internal/proxy"
 	"heimdall/internal/utils"
-	"io"
 	"net/http"
 	"time"
 )
@@ -75,7 +73,7 @@ func (g *grpcProxy) establishConnection(identifier HeimdallGrpcService, host str
 	var err error
 	switch identifier {
 	case HeimdallGrpcService_MESSEGING:
-		err = golang.RegisterMessagingServiceHandlerFromEndpoint(ctx, mux, "localhost:50501", opts)
+		err = golang.RegisterMessagingServiceHandlerFromEndpoint(ctx, mux, host, opts)
 	case HeimdallGrpcService_CARGO:
 		err = golang.RegisterCargoServiceHandlerFromEndpoint(ctx, mux, host, opts)
 	}
@@ -91,13 +89,10 @@ func (a *grpcProxy) Ping(url string) bool {
 func (a *grpcProxy) Proxy(c *gin.Context) error {
 
 	if a.bodyCheckConfig != nil {
-		if c.Request.Body != nil {
-			body, _ := io.ReadAll(c.Request.Body)
-			c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-			err := utils.ValidateBody(c.Request.Method, body, a.bodyCheckConfig)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			}
+		err := utils.ValidateBody(c, a.bodyCheckConfig)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return err
 		}
 	}
 
@@ -106,6 +101,7 @@ func (a *grpcProxy) Proxy(c *gin.Context) error {
 		return nil, a.lastError
 	})
 	if err == gobreaker.ErrOpenState {
+		c.JSON(http.StatusBadRequest, gin.H{"error": heimdallErrors.HostIsDown})
 		return heimdallErrors.HostIsDown
 	}
 	return err
@@ -125,7 +121,7 @@ func (a *grpcProxy) NewInterceptor() grpc.UnaryClientInterceptor {
 		if err != nil {
 			errCode := status.Code(err)
 			if errCode == codes.DeadlineExceeded || errCode == codes.Unavailable || errCode == codes.Unimplemented {
-				err = heimdallErrors.HostIsDown
+				err = heimdallErrors.ConnectionIssue
 			}
 			if errCode == codes.InvalidArgument || errCode == codes.PermissionDenied || errCode == codes.NotFound ||
 				errCode == codes.Unauthenticated || errCode == codes.Canceled || errCode == codes.Aborted ||
