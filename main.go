@@ -17,13 +17,12 @@ func main() {
 	r := gin.Default()
 	for _, apiConfig := range apiConfigs.ApisConfig {
 		func() {
-			/*defer func() {
+			defer func() {
 				err := recover()
 				if err != nil {
 					log.Println(fmt.Sprintf("unable to start porxy for service: %s for reason :%v", apiConfig.Match.Name, err))
 				}
-			}()*/
-			fmt.Println("ddd", apiConfig)
+			}()
 			h, err := heimdall.NewApiGateway(apiConfig, r)
 			if err != nil {
 				log.Println(fmt.Sprintf("creating gateway for url %s failed for reason: %v", apiConfig.Match.Path, err))

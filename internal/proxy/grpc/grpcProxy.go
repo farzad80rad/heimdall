@@ -3,9 +3,7 @@ package proxyGrpc
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/sony/gobreaker"
@@ -20,14 +18,13 @@ import (
 	"heimdall/internal/utils"
 	"io"
 	"net/http"
-	"reflect"
 	"time"
 )
 
 type grpcProxy struct {
 	cb              *gobreaker.CircuitBreaker
 	host            string
-	bodyCheckConfig *config.RequestBodyCheckConfig
+	bodyCheckConfig []config.HostMatchInfo
 	mux             *runtime.ServeMux
 	/* race condition may happen. but doesn't matter :).
 	the purpose of this field is to check consecutive error happening.
@@ -36,7 +33,7 @@ type grpcProxy struct {
 	lastError error
 }
 
-func New(host string, config config.CircuitBreakerConfig, checkConfig *config.RequestBodyCheckConfig,
+func New(host string, config config.CircuitBreakerConfig, checkConfig []config.HostMatchInfo,
 	mux *runtime.ServeMux, grpcService HeimdallGrpcService) (proxy.Proxy, error) {
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:     host,
@@ -70,7 +67,6 @@ func New(host string, config config.CircuitBreakerConfig, checkConfig *config.Re
 }
 
 func (g *grpcProxy) establishConnection(identifier HeimdallGrpcService, host string, mux *runtime.ServeMux) error {
-	fmt.Println("eemmmm", identifier, host)
 	ctx := context.Background()
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -93,27 +89,17 @@ func (a *grpcProxy) Ping(url string) bool {
 }
 
 func (a *grpcProxy) Proxy(c *gin.Context) error {
-	fmt.Println("haaa")
+
 	if a.bodyCheckConfig != nil {
 		if c.Request.Body != nil {
 			body, _ := io.ReadAll(c.Request.Body)
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-			var requestBodyMap map[string]interface{}
-			err := json.Unmarshal(body, &requestBodyMap)
+			err := utils.ValidateBody(c.Request.Method, body, a.bodyCheckConfig)
 			if err != nil {
-				return errors.Join(heimdallErrors.BadRequest, errors.New("not in json format"))
-			}
-			for _, fieldInfo := range a.bodyCheckConfig.MandatoryFields {
-				v, found := requestBodyMap[fieldInfo.FieldName]
-				if !(found && reflect.TypeOf(v).Kind().String() == fieldInfo.Type) {
-					err = errors.Join(heimdallErrors.BadRequest, errors.New("missing required field "+fieldInfo.FieldName))
-					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-					return err
-				}
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			}
 		}
 	}
-	fmt.Println("haa2")
 
 	_, err := a.cb.Execute(func() (interface{}, error) {
 		a.mux.ServeHTTP(c.Writer, c.Request)

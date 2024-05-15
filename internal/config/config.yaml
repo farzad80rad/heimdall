@@ -3,9 +3,24 @@ apis_config:
       connection_type: "http"
       name: "httpTest1"
       path: "/api1/*any"
-      http_types: ["POST", "PUT", "DELETE", "PATCH", "GET", "HEAD", "OPTIONS"]
+      match:
+        - type: "POST"
+          request_body_check:
+            mandatory_fields:
+              - field_name: "f1"
+                type: "string"
+              - field_name: "f2"
+                type: "bool"
+              - field_name: "f3"
+                type: "float64"
+              - field_name: "f4"
+                type: "map"
+              - field_name: "f5"
+                type: "slice"
+        - type: "GET"
+        - type: "HEAD"
     load_balance:
-      type: "round_robin"
+      type: "weighted_round_robin"
       host_units:
         - host: "http://localhost:23231"
           load_balance_weight: 4
@@ -19,25 +34,15 @@ apis_config:
       examine_window: "1m"
       quarantine_duration: "10s"
       failure_tolerance_count: 5
-    request_body_check:
-      mandatory_fields:
-        - field_name: "f1"
-          type: "string"
-        - field_name: "f2"
-          type: "bool"
-        - field_name: "f3"
-          type: "float64"
-        - field_name: "f4"
-          type: "map"
-        - field_name: "f5"
-          type: "slice"
+
 
 
   - match_policy:
       connection_type: "grpc"
       name: "CARGO"
       path: "/backend.cargo.v1.CargoService/*any"
-      http_types: ["POST", "PUT", "DELETE", "PATCH", "GET", "HEAD", "OPTIONS"]
+      match:
+        - type: "POST"
     load_balance:
       type: "round_robin"
       host_units:
@@ -55,7 +60,12 @@ apis_config:
       connection_type: "grpc"
       name: "MESSEGING"
       path: "/backend.messaging.v1.MessagingService/Echo"
-      http_types: ["POST"]
+      match:
+        - type: "POST"
+          request_body_check:
+            mandatory_fields:
+            - field_name: "value"
+              type: "string"
     load_balance:
       type: "round_robin"
       host_units:
@@ -64,9 +74,7 @@ apis_config:
       examine_window: "1m"
       quarantine_duration: "5s"
       failure_tolerance_count: 2
-    request_body_check:
-      mandatory_fields:
-        - field_name: "value"
-          type: "string"
+
+
 
 

@@ -3,9 +3,7 @@ package proxyHttp
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sony/gobreaker"
 	"heimdall/internal/config"
@@ -16,7 +14,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"reflect"
 	"time"
 )
 
@@ -24,10 +21,10 @@ type httpProxy struct {
 	cb              *gobreaker.CircuitBreaker
 	proxy           *httputil.ReverseProxy
 	host            string
-	bodyCheckConfig *config.RequestBodyCheckConfig
+	bodyCheckConfig []config.HostMatchInfo
 }
 
-func New(host string, config config.CircuitBreakerConfig, checkConfig *config.RequestBodyCheckConfig) (proxy.Proxy, error) {
+func New(host string, config config.CircuitBreakerConfig, checkConfig []config.HostMatchInfo) (proxy.Proxy, error) {
 	h, err := url.Parse(host)
 	if err != nil {
 		return nil, err
@@ -67,24 +64,12 @@ func (a *httpProxy) Ping(url string) bool {
 func (a *httpProxy) Proxy(c *gin.Context) error {
 
 	if a.bodyCheckConfig != nil {
-		//req.Header = c.Request.Header
-		// Handle body (for POST, PUT, etc.)
 		if c.Request.Body != nil {
 			body, _ := io.ReadAll(c.Request.Body)
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-			var requestBodyMap map[string]interface{}
-			err := json.Unmarshal(body, &requestBodyMap)
+			err := utils.ValidateBody(c.Request.Method, body, a.bodyCheckConfig)
 			if err != nil {
-				return errors.Join(heimdallErrors.BadRequest, errors.New("not in json format"))
-			}
-			for _, feildInfo := range a.bodyCheckConfig.MandatoryFields {
-				v, found := requestBodyMap[feildInfo.FieldName]
-				if !(found && reflect.TypeOf(v).Kind().String() == feildInfo.Type) {
-					fmt.Println(feildInfo.Type, reflect.TypeOf(v).Kind().String())
-					err = errors.Join(heimdallErrors.BadRequest, errors.New("missing required field "+feildInfo.FieldName))
-					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-					return err
-				}
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			}
 		}
 	}

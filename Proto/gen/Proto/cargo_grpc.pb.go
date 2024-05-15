@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v4.25.3
-// source: Proto/cargo.proto
+// source: cargo.proto
 
 package golang
 
@@ -137,5 +137,5 @@ var CargoService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "Proto/cargo.proto",
+	Metadata: "cargo.proto",
 }

@@ -42,7 +42,11 @@ func NewApiGateway(apiConfig config.ApiConfig, r *gin.Engine) (ApiGateway, error
 
 func (g *gateway) Run() error {
 	fmt.Println("haaaaaa", g.apiConfig.Match.SupportedRestTypes, g.apiConfig.Match.Path)
-	g.r.Match(g.apiConfig.Match.SupportedRestTypes, g.apiConfig.Match.Path, g.handleRequest)
+	supportedMethods := make([]string, len(g.apiConfig.Match.SupportedRestTypes))
+	for i, method := range g.apiConfig.Match.SupportedRestTypes {
+		supportedMethods[i] = method.SupportedType
+	}
+	g.r.Match(supportedMethods, g.apiConfig.Match.Path, g.handleRequest)
 	return nil
 }
 
@@ -98,9 +102,9 @@ func (g *gateway) createHosts() (map[string]proxy.Proxy, error) {
 				mux = runtime.NewServeMux()
 				muxPerHost[h.Host] = mux
 			}
-			p, err = proxyGrpc.New(h.Host, g.apiConfig.CircuitBreakerConfig, g.apiConfig.RequestBodyCheckConfig, mux, proxyGrpc.HeimdallGrpcService(g.apiConfig.Match.Name))
+			p, err = proxyGrpc.New(h.Host, g.apiConfig.CircuitBreakerConfig, g.apiConfig.Match.SupportedRestTypes, mux, proxyGrpc.HeimdallGrpcService(g.apiConfig.Match.Name))
 		} else {
-			p, err = proxyHttp.New(h.Host, g.apiConfig.CircuitBreakerConfig, g.apiConfig.RequestBodyCheckConfig)
+			p, err = proxyHttp.New(h.Host, g.apiConfig.CircuitBreakerConfig, g.apiConfig.Match.SupportedRestTypes)
 		}
 
 		if err != nil {

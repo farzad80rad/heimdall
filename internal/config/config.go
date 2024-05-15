@@ -12,11 +12,10 @@ type HeimdallConfig struct {
 }
 
 type ApiConfig struct {
-	Match                  MatchPolicy             `yaml:"match_policy"`
-	LoadBalancePolicy      HostLoadPolicy          `yaml:"load_balance"`
-	HealthCheckConfig      *HealthCheckConfig      `yaml:"health_check_config"`
-	CircuitBreakerConfig   CircuitBreakerConfig    `yaml:"circuit_breaker_config"`
-	RequestBodyCheckConfig *RequestBodyCheckConfig `yaml:"request_body_check"`
+	Match                MatchPolicy          `yaml:"match_policy"`
+	LoadBalancePolicy    HostLoadPolicy       `yaml:"load_balance"`
+	HealthCheckConfig    *HealthCheckConfig   `yaml:"health_check_config"`
+	CircuitBreakerConfig CircuitBreakerConfig `yaml:"circuit_breaker_config"`
 }
 
 type RequestBodyCheckConfig struct {
@@ -24,8 +23,8 @@ type RequestBodyCheckConfig struct {
 }
 
 type RequestValidationUnit struct {
-	FieldName string `yaml:"field_name"`
-	Type      string `yaml:"type"`
+	Name string `yaml:"field_name"`
+	Type string `yaml:"type"`
 }
 
 type ConnectionType string
@@ -35,11 +34,16 @@ const (
 	ConnectionType_GPRC  ConnectionType = "grpc"
 )
 
+type HostMatchInfo struct {
+	RequestBodyCheckConfig *RequestBodyCheckConfig `yaml:"request_body_check"`
+	SupportedType          string                  `yaml:"type"`
+}
+
 type MatchPolicy struct {
-	ConnectionType     ConnectionType `yaml:"connection_type"`
-	Name               string         `yaml:"name"`
-	Path               string         `yaml:"path"`
-	SupportedRestTypes []string       `yaml:"http_types"`
+	ConnectionType     ConnectionType  `yaml:"connection_type"`
+	Name               string          `yaml:"name"`
+	Path               string          `yaml:"path"`
+	SupportedRestTypes []HostMatchInfo `yaml:"match"`
 }
 
 type LoadBalanceType string
