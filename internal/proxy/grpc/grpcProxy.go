@@ -16,6 +16,7 @@ import (
 	"heimdall/internal/proxy"
 	"heimdall/internal/utils"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -33,9 +34,13 @@ type grpcProxy struct {
 
 func New(host string, config config.CircuitBreakerConfig, checkConfig []config.HostMatchInfo,
 	mux *runtime.ServeMux, grpcService HeimdallGrpcService) (proxy.Proxy, error) {
+
+	host = strings.TrimPrefix("https://", host)
+	host = strings.TrimPrefix("http://", host)
+
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:     host,
-		Interval: config.ExamineWindow,
+		Interval: time.Minute,
 		Timeout:  config.QuarantineDuration,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			maxTolerance := uint32(10)

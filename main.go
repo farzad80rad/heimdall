@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/cast"
 	"heimdall/internal/config"
 	"heimdall/internal/heimdall"
 	"log"
@@ -35,5 +36,5 @@ func main() {
 		}()
 	}
 
-	r.Run(":80")
+	r.Run(":" + cast.ToString(apiConfigs.HeimdallPort))
 }

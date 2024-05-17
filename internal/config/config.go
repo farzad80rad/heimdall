@@ -8,7 +8,8 @@ import (
 )
 
 type HeimdallConfig struct {
-	ApisConfig []ApiConfig `yaml:"apis_config"`
+	HeimdallPort int         `yaml:"heimdall_port"`
+	ApisConfig   []ApiConfig `yaml:"apis_config"`
 }
 
 type ApiConfig struct {
@@ -43,7 +44,7 @@ type MatchPolicy struct {
 	ConnectionType     ConnectionType  `yaml:"connection_type"`
 	Name               string          `yaml:"name"`
 	Path               string          `yaml:"path"`
-	SupportedRestTypes []HostMatchInfo `yaml:"match"`
+	SupportedRestTypes []HostMatchInfo `yaml:"per_method"`
 }
 
 type LoadBalanceType string
@@ -65,7 +66,6 @@ type HostUnit struct {
 }
 
 type CircuitBreakerConfig struct {
-	ExamineWindow         time.Duration `yaml:"examine_window"`
 	QuarantineDuration    time.Duration `yaml:"quarantine_duration"`
 	FailureToleranceCount uint32        `yaml:"failure_tolerance_count"`
 }

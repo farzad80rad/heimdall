@@ -23,15 +23,22 @@ type weightedRoundRobin struct {
 func NewWeightedRoundRobin(hosts []config.HostUnit) LoadBalancer {
 	hostsInfo := make([]*weightedHost, len(hosts))
 	calculatedGcd := hosts[0].Weight
+	sum := 0
 	for _, unit := range hosts {
+		sum += unit.Weight
 		calculatedGcd = gcd(unit.Weight, calculatedGcd)
 	}
+
 	for index, h := range hosts {
+		w := 1
+		if sum != 0 {
+			w = h.Weight / calculatedGcd
+		}
 		hostsInfo[index] = &weightedHost{
 			url:          h.Host,
 			enabled:      true,
 			currentScore: 0,
-			MaxScore:     h.Weight / calculatedGcd,
+			MaxScore:     w,
 		}
 	}
 	r := &weightedRoundRobin{

@@ -1,9 +1,10 @@
+heimdall_port: 80
 apis_config:
   - match_policy:
       connection_type: "http"
       name: "httpTest1"
       path: "/api1/*any"
-      match:
+      per_method:
         - type: "POST"
           request_body_check:
             mandatory_fields:
@@ -35,17 +36,14 @@ apis_config:
       failure_threshold: 3
       interval: "10s"
     circuit_breaker_config:
-      examine_window: "1m"
       quarantine_duration: "30s"
       failure_tolerance_count: 2
-
-
 
   - match_policy:
       connection_type: "grpc"
       name: "CARGO"
       path: "/backend.cargo.v1.CargoService/*any"
-      match:
+      per_method:
         - type: "POST"
     load_balance:
       type: "round_robin"
@@ -62,7 +60,7 @@ apis_config:
       connection_type: "grpc"
       name: "MESSEGING"
       path: "/backend.messaging.v1.MessagingService/*any"
-      match:
+      per_method:
         - type: "POST"
           request_body_check:
             mandatory_fields:
@@ -78,7 +76,3 @@ apis_config:
       examine_window: "1m"
       quarantine_duration: "30s"
       failure_tolerance_count: 5
-
-
-
-

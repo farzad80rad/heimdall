@@ -32,7 +32,7 @@ func New(host string, config config.CircuitBreakerConfig, checkConfig []config.H
 
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:     host,
-		Interval: config.ExamineWindow,
+		Interval: time.Minute,
 		Timeout:  config.QuarantineDuration,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			maxTolerance := uint32(10)

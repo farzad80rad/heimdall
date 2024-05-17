@@ -62,6 +62,12 @@ func (g *gateway) handleRequest(c *gin.Context) {
 	if err == heimdallErrors.HostIsDown {
 		c.Status(http.StatusBadGateway)
 		if g.apiConfig.HealthCheckConfig == nil {
+			if g.apiConfig.HealthCheckConfig.Interval < 500*time.Millisecond {
+				g.apiConfig.HealthCheckConfig.Interval = time.Second
+			}
+			if g.apiConfig.HealthCheckConfig.FailureThreshHold < 1 {
+				g.apiConfig.HealthCheckConfig.FailureThreshHold = 3
+			}
 			g.lb.DisableHostForDuration(destination, g.apiConfig.CircuitBreakerConfig.QuarantineDuration)
 		} else {
 			g.lb.SetHostStatus(destination, false)
