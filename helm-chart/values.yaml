@@ -1,0 +1,147 @@
+# Default values for heimdall.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: farzad80rad/heimdal
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "1.0.6"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+
+config:
+  heimdall_port: 80
+  apis_config:
+    - match_policy:
+        connection_type: "http"
+        name: "httpTest1"
+        path: "/api1/*any"
+        per_method:
+          - type: "POST"
+            request_body_check:
+              mandatory_fields:
+                - field_name: "f1"
+                  type: "string"
+                - field_name: "f2"
+                  type: "bool"
+                - field_name: "f3"
+                  type: "float64"
+                - field_name: "f4"
+                  type: "map"
+                - field_name: "f5"
+                  type: "slice"
+          - type: "GET"
+          - type: "HEAD"
+      load_balance:
+        type: "weighted_round_robin"
+        host_units:
+          - host: "http://192.168.193.3:23231"
+            load_balance_weight: 4
+          - host: "http://192.168.193.3:23533"
+            load_balance_weight: 2
+          - host: "http://192.168.193.3:23232"
+            load_balance_weight: 2
+          - host: "http://192.168.193.3:23233"
+            load_balance_weight: 2
+      health_check_config:
+        path: "/health"
+        failure_threshold: 3
+        interval: "10s"
+      circuit_breaker_config:
+        quarantine_duration: "30s"
+        failure_tolerance_count: 2
+
+    - match_policy:
+        connection_type: "grpc"
+        name: "CARGO"
+        path: "/backend.cargo.v1.CargoService/*any"
+        per_method:
+          - type: "POST"
+      load_balance:
+        type: "round_robin"
+        host_units:
+          - host: "192.168.193.3:50503"
+            load_balance_weight: 4
+      circuit_breaker_config:
+        examine_window: "1m"
+        quarantine_duration: "5s"
+        failure_tolerance_count: 2
+
+
+    - match_policy:
+        connection_type: "grpc"
+        name: "MESSEGING"
+        path: "/backend.messaging.v1.MessagingService/*any"
+        per_method:
+          - type: "POST"
+            request_body_check:
+              mandatory_fields:
+                - field_name: "value"
+                  type: "string"
+      load_balance:
+        type: "round_robin"
+        host_units:
+          - host: "192.168.193.3:50502"
+          - host: "192.168.193.3:50503"
+          - host: "192.168.193.3:50501"
+      circuit_breaker_config:
+        examine_window: "1m"
+        quarantine_duration: "30s"
+        failure_tolerance_count: 5

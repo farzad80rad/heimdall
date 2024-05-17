@@ -73,6 +73,13 @@ then select one ot these two approaches:
 
   $ docker-compose up
 ```
+
+* Deploy on Kubernetes
+
+  First customise values of chart and configmap by your preferring. 
+```bash
+  helm install  ./helm-chart heimdall
+```    
 ## Documentation
 
 The only part you must know to start using the
@@ -81,7 +88,7 @@ field name | optional |  describe
 heimdall_port | false |     port which API Gateway will listen to. By default  80  
 apis_config| false | list of Apis Policy
 match_policy | false | describe each API
-apis_config.match_policy.connection_type | true |    HTTP or GRPC API. select between "http" and "grpc". (default is http) 
+apis_config.match_policy. connection_type | true |    HTTP or GRPC API. select between "http" and "grpc". (default is http) 
 apis_config.match_policy. name | false | name of this app. For GRPC APIs you have to set the same name as the name you have selected in internal/proxy/grpcProxy.go 
 apis_config.match_policy. path | false | checks if the request does belong to this API. You can use /*any for accepting any sub-path.
 apis_config.match_policy. per_method | false |  config for each separate HTTP method.
