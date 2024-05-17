@@ -82,26 +82,26 @@ heimdall_port | false |     port which API Gateway will listen to. By default
 apis_config| false | list of Apis Policy
 match_policy | false | describe each API
 apis_config.match_policy.connection_type | true |    HTTP or GRPC API. select between "http" and "grpc". (default is http) 
-apis_config.match_policy.name | false | name of this app. For GRPC APIs you have to set the same name as the name you have selected in internal/proxy/grpcProxy.go 
-apis_config.match_policy.path | false | checks if the request does belong to this API. You can use /*any for accepting any sub-path.
-apis_config.match_policy.per_method | false |  config for each separate HTTP method.
-apis_config.match_policy.per_method.type | false |  specified HTTP method type. Multiple methods could be selected at once. Select among "post", "get", "put" and ... 
-apis_config.match_policy.per_method.request_body_check | true | policy for checking each request received in Heimdall. request will be sent to specified API only if it passes this checks
-apis_config.match_policy.per_method.request_body_check.mandatory_fields | true | list of fields that must be presented in request body
-apis_config.match_policy.per_method.request_body_check.mandatory_fields.field_name | false | name of body field
-apis_config.match_policy.per_method.request_body_check.mandatory_fields.type | false | type of field. select among ("string", "float64", "bool", "map", "slice")
+apis_config.match_policy. name | false | name of this app. For GRPC APIs you have to set the same name as the name you have selected in internal/proxy/grpcProxy.go 
+apis_config.match_policy. path | false | checks if the request does belong to this API. You can use /*any for accepting any sub-path.
+apis_config.match_policy. per_method | false |  config for each separate HTTP method.
+apis_config.match_policy. per_method.type | false |  specified HTTP method type. Multiple methods could be selected at once. Select among "post", "get", "put" and ... 
+apis_config.match_policy. per_method.request_body_check | true | policy for checking each request received in Heimdall. request will be sent to specified API only if it passes this checks
+apis_config.match_policy. per_method.request_body_check. mandatory_fields | true | list of fields that must be presented in request body
+apis_config.match_policy. per_method.request_body_check. mandatory_fields.field_name | false | name of body field
+apis_config.match_policy. per_method.request_body_check. mandatory_fields.type | false | type of field. select among ("string", "float64", "bool", "map", "slice")
 apis_config.load_balance | false | policy for load balancing and specifies the hosts. By default round-robin is enabled 
-apis_config.load_balance.type | true |   load balancing logic. select between "weighted_round_robin" or "round_robin". by default "round_robin" is enabled 
-apis_config.load_balance.host_units | false |   hosts ip and theire weight if "weighted_round_robin" is selected. 
-apis_config.load_balance.host_units.host | false |   host IP of your service.
-apis_config.load_balance.host_units.load_balance_weight | true |   If "weighted_round_robin" is selected, set the weight of this host by this field.
+apis_config.load_balance. type | true |   load balancing logic. select between "weighted_round_robin" or "round_robin". by default "round_robin" is enabled 
+apis_config.load_balance. host_units | false |   hosts ip and theire weight if "weighted_round_robin" is selected. 
+apis_config.load_balance. host_units.host | false |   host IP of your service.
+apis_config.load_balance. host_units.load_balance_weight | true |   If "weighted_round_robin" is selected, set the weight of this host by this field.
 apis_config.health_check_config | true |   health check policy for this API. 
-apis_config.health_check_config.path | false | This path will be called for all the hosts you have mentioned at apis_config.load_balance.host_units for this api_config. 
-apis_config.health_check_config.failure_threshold | true | consecutive failures threshold to count this host as down. By default, the failure_threshold is set to 3
-apis_config.health_check_config.interval | true |   interval of calling the health URL of the host. By default, the interval is set to 1s.
+apis_config.health_check_config. path | false | This path will be called for all the hosts you have mentioned at apis_config.load_balance.host_units for this api_config. 
+apis_config.health_check_config. failure_threshold | true | consecutive failures threshold to count this host as down. By default, the failure_threshold is set to 3
+apis_config.health_check_config. interval | true |   interval of calling the health URL of the host. By default, the interval is set to 1s.
 apis_config.circuit_breaker_config | true | specifies the circuit break policy for host 
-apis_config.circuit_breaker_config.quarantine_duration | true |   duration that the host will be removed from available hosts and won't receive new inputs.
-apis_config.circuit_breaker_config.failure_tolerance_count | true |  count of consecutive failures to count this host as down 
+apis_config.circuit_breaker_config. quarantine_duration | true |   duration that the host will be removed from available hosts and won't receive new inputs.
+apis_config.circuit_breaker_config. failure_tolerance_count | true |  count of consecutive failures to count this host as down 
 
 ## Usage/Examples
 
