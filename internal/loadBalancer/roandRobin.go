@@ -74,7 +74,7 @@ func (r *roundRobin) createNexAvailableHost() {
 			}
 			consecutiveFailures++
 			if consecutiveFailures == len(r.hosts) {
-				// just to prevent cpu bursting when there is no available host
+				// just to prevent cpu bursting when there is no more available host
 				time.Sleep(time.Second)
 			}
 		}

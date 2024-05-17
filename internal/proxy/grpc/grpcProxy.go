@@ -35,8 +35,8 @@ type grpcProxy struct {
 func New(host string, config config.CircuitBreakerConfig, checkConfig []config.HostMatchInfo,
 	mux *runtime.ServeMux, grpcService HeimdallGrpcService) (proxy.Proxy, error) {
 
-	host = strings.TrimPrefix("https://", host)
-	host = strings.TrimPrefix("http://", host)
+	host = strings.TrimPrefix(host, "https://")
+	host = strings.TrimPrefix(host, "http://")
 
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:     host,
@@ -76,6 +76,9 @@ func (g *grpcProxy) establishConnection(identifier HeimdallGrpcService, host str
 		grpc.WithUnaryInterceptor(g.NewInterceptor()),
 	}
 	var err error
+
+	// todo (by you): modify this part to add your grpc service
+
 	switch identifier {
 	case HeimdallGrpcService_MESSEGING:
 		err = golang.RegisterMessagingServiceHandlerFromEndpoint(ctx, mux, host, opts)
@@ -85,25 +88,25 @@ func (g *grpcProxy) establishConnection(identifier HeimdallGrpcService, host str
 	return err
 }
 
-func (a *grpcProxy) Ping(url string) bool {
+func (g *grpcProxy) Ping(url string) bool {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
-	err := utils.DoHTTPGetRequest(ctx, a.host+url)
+	err := utils.DoHTTPGetRequest(ctx, g.host+url)
 	return err == nil
 }
 
-func (a *grpcProxy) Proxy(c *gin.Context) error {
+func (g *grpcProxy) Proxy(c *gin.Context) error {
 
-	if a.bodyCheckConfig != nil {
-		err := utils.ValidateBody(c, a.bodyCheckConfig)
+	if g.bodyCheckConfig != nil {
+		err := utils.ValidateBody(c, g.bodyCheckConfig)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return err
 		}
 	}
 
-	_, err := a.cb.Execute(func() (interface{}, error) {
-		a.mux.ServeHTTP(c.Writer, c.Request)
-		return nil, a.lastError
+	_, err := g.cb.Execute(func() (interface{}, error) {
+		g.mux.ServeHTTP(c.Writer, c.Request)
+		return nil, g.lastError
 	})
 	if err == gobreaker.ErrOpenState {
 		c.JSON(http.StatusBadRequest, gin.H{"error": heimdallErrors.HostIsDown})
@@ -112,7 +115,7 @@ func (a *grpcProxy) Proxy(c *gin.Context) error {
 	return err
 }
 
-func (a *grpcProxy) NewInterceptor() grpc.UnaryClientInterceptor {
+func (g *grpcProxy) NewInterceptor() grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
 		method string,
@@ -135,7 +138,7 @@ func (a *grpcProxy) NewInterceptor() grpc.UnaryClientInterceptor {
 				err = nil
 			}
 		}
-		a.lastError = err
+		g.lastError = err
 		return err
 	}
 }

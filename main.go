@@ -17,7 +17,6 @@ func main() {
 	}
 	r := gin.Default()
 	for _, apiConfig := range apiConfigs.ApisConfig {
-		log.Println(apiConfig)
 		func() {
 			defer func() {
 				err := recover()

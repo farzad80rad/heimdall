@@ -23,13 +23,13 @@ apis_config:
     load_balance:
       type: "weighted_round_robin"
       host_units:
-        - host: "http://192.168.1.118:23231"
+        - host: "http://192.168.193.3:23231"
           load_balance_weight: 4
-        - host: "http://192.168.1.118:23533"
+        - host: "http://192.168.193.3:23533"
           load_balance_weight: 2
-        - host: "http://192.168.1.118:23232"
+        - host: "http://192.168.193.3:23232"
           load_balance_weight: 2
-        - host: "http://192.168.1.118:23233"
+        - host: "http://192.168.193.3:23233"
           load_balance_weight: 2
     health_check_config:
       path: "/health"
@@ -48,7 +48,7 @@ apis_config:
     load_balance:
       type: "round_robin"
       host_units:
-        - host: "192.168.1.118:50503"
+        - host: "192.168.193.3:50503"
           load_balance_weight: 4
     circuit_breaker_config:
       examine_window: "1m"
@@ -69,9 +69,9 @@ apis_config:
     load_balance:
       type: "round_robin"
       host_units:
-        - host: "192.168.1.118:50502"
-        - host: "192.168.1.118:50503"
-        - host: "192.168.1.118:50501"
+        - host: "192.168.193.3:50502"
+        - host: "192.168.193.3:50503"
+        - host: "192.168.193.3:50501"
     circuit_breaker_config:
       examine_window: "1m"
       quarantine_duration: "30s"

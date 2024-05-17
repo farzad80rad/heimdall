@@ -2,7 +2,6 @@ package heimdall
 
 import (
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"heimdall/internal/config"
@@ -11,11 +10,11 @@ import (
 	"heimdall/internal/proxy"
 	proxyGrpc "heimdall/internal/proxy/grpc"
 	proxyHttp "heimdall/internal/proxy/http"
-	"net/http"
 	"time"
 )
 
 type ApiGateway interface {
+	// Run starts proxy incoming requests that match the config, to the given hosts
 	Run() error
 }
 
@@ -27,6 +26,15 @@ type gateway struct {
 }
 
 func NewApiGateway(apiConfig config.ApiConfig, r *gin.Engine) (ApiGateway, error) {
+	if apiConfig.HealthCheckConfig != nil {
+		if apiConfig.HealthCheckConfig.Interval < 500*time.Millisecond {
+			apiConfig.HealthCheckConfig.Interval = time.Second
+		}
+		if apiConfig.HealthCheckConfig.FailureThreshHold < 1 {
+			apiConfig.HealthCheckConfig.FailureThreshHold = 3
+		}
+	}
+
 	g := &gateway{
 		lb:        createLoadBalancer(apiConfig),
 		apiConfig: apiConfig,
@@ -41,7 +49,6 @@ func NewApiGateway(apiConfig config.ApiConfig, r *gin.Engine) (ApiGateway, error
 }
 
 func (g *gateway) Run() error {
-	fmt.Println("haaaaaa", g.apiConfig.Match.SupportedRestTypes, g.apiConfig.Match.Path)
 	supportedMethods := make([]string, len(g.apiConfig.Match.SupportedRestTypes))
 	for i, method := range g.apiConfig.Match.SupportedRestTypes {
 		supportedMethods[i] = method.SupportedType
@@ -60,25 +67,20 @@ func (g *gateway) handleRequest(c *gin.Context) {
 	}
 
 	if err == heimdallErrors.HostIsDown {
-		c.Status(http.StatusBadGateway)
 		if g.apiConfig.HealthCheckConfig == nil {
-			if g.apiConfig.HealthCheckConfig.Interval < 500*time.Millisecond {
-				g.apiConfig.HealthCheckConfig.Interval = time.Second
-			}
-			if g.apiConfig.HealthCheckConfig.FailureThreshHold < 1 {
-				g.apiConfig.HealthCheckConfig.FailureThreshHold = 3
-			}
+
+			//disable host for just a specific duration of time. after this time, the host will be ready to be checked once more.
 			g.lb.DisableHostForDuration(destination, g.apiConfig.CircuitBreakerConfig.QuarantineDuration)
 		} else {
+			//disables the host permanently. responsibility for returning the host back is for watchHealth method.
 			g.lb.SetHostStatus(destination, false)
 		}
 	}
 
 	if errors.Is(err, heimdallErrors.BadRequest) {
-		c.Status(http.StatusBadRequest)
+		// any additional actions could be performed here
 		return
 	}
-
 }
 
 func createLoadBalancer(apiConfig config.ApiConfig) loadBalancer2.LoadBalancer {
@@ -141,10 +143,6 @@ func (g *gateway) watchHealth(ap proxy.Proxy, host string) {
 			g.lb.SetHostStatus(host, false)
 		}
 
-		sleepTime := g.apiConfig.HealthCheckConfig.Interval
-		if sleepTime < time.Second {
-			sleepTime = 5 * time.Second
-		}
-		time.Sleep(sleepTime)
+		time.Sleep(g.apiConfig.HealthCheckConfig.Interval)
 	}
 }
